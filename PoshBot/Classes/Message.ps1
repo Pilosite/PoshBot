@@ -11,6 +11,7 @@ class Message {
     [string]$FromName           # Name of user who sent the message
     [datetime]$Time             # The date/time (UTC) the message was received
     [bool]$IsDM                 # Denotes if message is a direct message
+    [string[]]$CC               # Array of channels for relying the message 
     [hashtable]$Options         # Any other bits of information about a message. This will be backend specific
     [pscustomobject]$RawMessage # The raw message as received by the backend. This can be usefull for the backend
 

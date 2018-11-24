@@ -18,6 +18,8 @@ function New-PoshBotCardResponse {
         The text response from the command.
     .PARAMETER DM
         Tell PoshBot to redirect the response to a DM channel.
+    .PARAMETER CC
+        Tell PoshBot to redirect the response to each Channel in CC.
     .PARAMETER Title
         The title of the response. This will be the card title in chat networks like Slack.
     .PARAMETER ThumbnailUrl
@@ -83,6 +85,8 @@ function New-PoshBotCardResponse {
 
         [switch]$DM,
 
+        [string[]]$CC,
+
         [string]$Text = [string]::empty,
 
         [string]$Title,
@@ -141,6 +145,7 @@ function New-PoshBotCardResponse {
         Text = $Text.Trim()
         Private = $PSBoundParameters.ContainsKey('Private')
         DM = $PSBoundParameters['DM']
+        CC = $CC
     }
     if ($PSBoundParameters.ContainsKey('Title')) {
         $response.Title = $Title

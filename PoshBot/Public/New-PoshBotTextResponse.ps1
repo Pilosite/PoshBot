@@ -13,6 +13,8 @@ function New-PoshBotTextResponse {
         Format the text in a code block if the backend supports it.
     .PARAMETER DM
         Tell PoshBot to redirect the response to a DM channel.
+    .PARAMETER CC
+        Tell PoshBot to redirect the response to each Channel in CC.
     .EXAMPLE
         function Get-Foo {
             [cmdletbinding()]
@@ -42,7 +44,9 @@ function New-PoshBotTextResponse {
 
         [switch]$AsCode,
 
-        [switch]$DM
+        [switch]$DM,
+        
+        [string[]]$CC
     )
 
     process {
@@ -52,6 +56,7 @@ function New-PoshBotTextResponse {
                 Text = $item.Trim()
                 AsCode = $PSBoundParameters.ContainsKey('AsCode')
                 DM = $PSBoundParameters.ContainsKey('DM')
+                CC = $CC
             }
         }
     }
