@@ -1,10 +1,18 @@
 
 class CommandParser {
-    [ParsedCommand] static Parse([Message]$Message) {
+    [ParsedCommand] static Parse([Message]$Message,[string[]]$BotNames) {
 
         $commandString = [string]::Empty
         if (-not [string]::IsNullOrEmpty($Message.Text)) {
             $commandString = $Message.Text.Trim()
+        }
+        
+        foreach ($BotName in $BotNames) {
+            if ($commandString -like "*$($BotName)*") {
+                #Remove the bot name from command
+                $commandString = $commandString.Replace($BotName, '')
+                continue
+            }
         }
 
         # The command is the first word of the message
