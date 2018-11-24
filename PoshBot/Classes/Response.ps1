@@ -5,6 +5,7 @@ class Response {
     [string[]]$Text
     [string]$MessageFrom
     [string]$To
+    [string[]]$Cc
     [Message]$OriginalMessage = [Message]::new()
     [pscustomobject[]]$Data = @()
 

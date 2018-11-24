@@ -374,127 +374,137 @@ class SlackBackend : Backend {
         # Process any custom responses
         $this.LogDebug("[$($Response.Data.Count)] custom responses")
         foreach ($customResponse in $Response.Data) {
-
-            [string]$sendTo = $Response.To
+            [string[]]$sendToRecipients = @()
             if ($customResponse.DM) {
-                $sendTo = "@$($this.UserIdToUsername($Response.MessageFrom))"
+                $sendToRecipients += "@$($this.UserIdToUsername($Response.MessageFrom))"
+            }
+            else {
+                $sendToRecipients += $Response.To
             }
 
-            switch -Regex ($customResponse.PSObject.TypeNames[0]) {
-                '(.*?)PoshBot\.Card\.Response' {
-                    $this.LogDebug('Custom response is [PoshBot.Card.Response]')
-                    $chunks = $this._ChunkString($customResponse.Text)
-                    $x = 0
-                    foreach ($chunk in $chunks) {
-                        $attParams = @{
-                            MarkdownFields = 'text'
-                            Color = $customResponse.Color
-                        }
-                        $fbText = 'no data'
-                        if (-not [string]::IsNullOrEmpty($chunk.Text)) {
-                            $this.LogDebug("Response size [$($chunk.Text.Length)]")
-                            $fbText = $chunk.Text
-                        }
-                        $attParams.Fallback = $fbText
-                        if ($customResponse.Title) {
-
-                            # If we chunked up the response, only display the title on the first one
-                            if ($x -eq 0) {
-                                $attParams.Title = $customResponse.Title
-                            }
-                        }
-                        if ($customResponse.ImageUrl) {
-                            $attParams.ImageURL = $customResponse.ImageUrl
-                        }
-                        if ($customResponse.ThumbnailUrl) {
-                            $attParams.ThumbURL = $customResponse.ThumbnailUrl
-                        }
-                        if ($customResponse.LinkUrl) {
-                            $attParams.TitleLink = $customResponse.LinkUrl
-                        }
-                        if ($customResponse.Fields) {
-                            $arr = New-Object System.Collections.ArrayList
-                            foreach ($key in $customResponse.Fields.Keys) {
-                                $arr.Add(
-                                    @{
-                                        title = $key;
-                                        value = $customResponse.Fields[$key];
-                                        short = $true
-                                    }
-                                )
-                            }
-                            $attParams.Fields = $arr
-                        }
-
-                        if (-not [string]::IsNullOrEmpty($chunk)) {
-                            $attParams.Text = '```' + $chunk + '```'
-                        } else {
-                            $attParams.Text = [string]::Empty
-                        }
-                        $att = New-SlackMessageAttachment @attParams
-                        $msg = $att | New-SlackMessage -Channel $sendTo -AsUser
-                        $this.LogDebug("Sending card response back to Slack channel [$sendTo]", $att)
-                        $slackResponse = $msg | Send-SlackMessage -Token $this.Connection.Config.Credential.GetNetworkCredential().Password -Verbose:$false
-                    }
-                    break
+            if ($customResponse.CC.Count -gt 0) {
+                foreach ($cc in $customResponse.CC)
+                {
+                    $sendToRecipients += $cc
                 }
-                '(.*?)PoshBot\.Text\.Response' {
-                    $this.LogDebug('Custom response is [PoshBot.Text.Response]')
-                    $chunks = $this._ChunkString($customResponse.Text)
-                    foreach ($chunk in $chunks) {
-                        if ($customResponse.AsCode) {
-                            $t = '```' + $chunk + '```'
-                        } else {
-                            $t = $chunk
-                        }
-                        $this.LogDebug("Sending text response back to Slack channel [$sendTo]", $t)
-                        $slackResponse = Send-SlackMessage -Token $this.Connection.Config.Credential.GetNetworkCredential().Password -Channel $sendTo -Text $t -Verbose:$false -AsUser
-                    }
-                    break
-                }
-                '(.*?)PoshBot\.File\.Upload' {
-                    $this.LogDebug('Custom response is [PoshBot.File.Upload]')
-
-                    $uploadParams = @{
-                        Token = $this.Connection.Config.Credential.GetNetworkCredential().Password
-                        Channel = $sendTo
-                    }
-
-                    if ([string]::IsNullOrEmpty($customResponse.Path) -and (-not [string]::IsNullOrEmpty($customResponse.Content))) {
-                        $uploadParams.Content = $customResponse.Content
-                        if (-not [string]::IsNullOrEmpty($customResponse.FileType)) {
-                            $uploadParams.FileType = $customResponse.FileType
-                        }
-                        if (-not [string]::IsNullOrEmpty($customResponse.FileName)) {
-                            $uploadParams.FileName = $customResponse.FileName
-                        }
-                    } else {
-                        # Test if file exists and send error response if not found
-                        if (-not (Test-Path -Path $customResponse.Path -ErrorAction SilentlyContinue)) {
-                            # Mark command as failed since we could't find the file to upload
-                            $this.RemoveReaction($Response.OriginalMessage, [ReactionType]::Success)
-                            $this.AddReaction($Response.OriginalMessage, [ReactionType]::Failure)
-                            $att = New-SlackMessageAttachment -Color '#FF0000' -Title 'Rut row' -Text "File [$($uploadParams.Path)] not found" -Fallback 'Rut row'
+            }
+            foreach ($sendto in $sendToRecipients)  {
+                switch -Regex ($customResponse.PSObject.TypeNames[0]) {
+                    '(.*?)PoshBot\.Card\.Response' {
+                        $this.LogDebug('Custom response is [PoshBot.Card.Response]')
+                        $chunks = $this._ChunkString($customResponse.Text)
+                        $x = 0
+                        foreach ($chunk in $chunks) {
+                            $attParams = @{
+                                MarkdownFields = 'text'
+                                Color = $customResponse.Color
+                            }
+                            $fbText = 'no data'
+                            if (-not [string]::IsNullOrEmpty($chunk.Text)) {
+                                $this.LogDebug("Response size [$($chunk.Text.Length)]")
+                                $fbText = $chunk.Text
+                            }
+                            $attParams.Fallback = $fbText
+                            if ($customResponse.Title) {
+    
+                                # If we chunked up the response, only display the title on the first one
+                                if ($x -eq 0) {
+                                    $attParams.Title = $customResponse.Title
+                                }
+                            }
+                            if ($customResponse.ImageUrl) {
+                                $attParams.ImageURL = $customResponse.ImageUrl
+                            }
+                            if ($customResponse.ThumbnailUrl) {
+                                $attParams.ThumbURL = $customResponse.ThumbnailUrl
+                            }
+                            if ($customResponse.LinkUrl) {
+                                $attParams.TitleLink = $customResponse.LinkUrl
+                            }
+                            if ($customResponse.Fields) {
+                                $arr = New-Object System.Collections.ArrayList
+                                foreach ($key in $customResponse.Fields.Keys) {
+                                    $arr.Add(
+                                        @{
+                                            title = $key;
+                                            value = $customResponse.Fields[$key];
+                                            short = $true
+                                        }
+                                    )
+                                }
+                                $attParams.Fields = $arr
+                            }
+    
+                            if (-not [string]::IsNullOrEmpty($chunk)) {
+                                $attParams.Text = '```' + $chunk + '```'
+                            } else {
+                                $attParams.Text = [string]::Empty
+                            }
+                            $att = New-SlackMessageAttachment @attParams
                             $msg = $att | New-SlackMessage -Channel $sendTo -AsUser
                             $this.LogDebug("Sending card response back to Slack channel [$sendTo]", $att)
-                            $null = $msg | Send-SlackMessage -Token $this.Connection.Config.Credential.GetNetworkCredential().Password -Verbose:$false
-                            break
+                            $slackResponse = $msg | Send-SlackMessage -Token $this.Connection.Config.Credential.GetNetworkCredential().Password -Verbose:$false
                         }
-
-                        $this.LogDebug("Uploading [$($customResponse.Path)] to Slack channel [$sendTo]")
-                        $uploadParams.Path = $customResponse.Path
-                        $uploadParams.Title = Split-Path -Path $customResponse.Path -Leaf
+                        break
                     }
-
-                    if (-not [string]::IsNullOrEmpty($customResponse.Title)) {
-                        $uploadParams.Title = $customResponse.Title
+                    '(.*?)PoshBot\.Text\.Response' {
+                        $this.LogDebug('Custom response is [PoshBot.Text.Response]')
+                        $chunks = $this._ChunkString($customResponse.Text)
+                        foreach ($chunk in $chunks) {
+                            if ($customResponse.AsCode) {
+                                $t = '```' + $chunk + '```'
+                            } else {
+                                $t = $chunk
+                            }
+                            $this.LogDebug("Sending text response back to Slack channel [$sendTo]", $t)
+                            $slackResponse = Send-SlackMessage -Token $this.Connection.Config.Credential.GetNetworkCredential().Password -Channel $sendTo -Text $t -Verbose:$false -AsUser
+                        }
+                        break
                     }
-
-                    Send-SlackFile @uploadParams -Verbose:$false
-                    if (-not $customResponse.KeepFile -and -not [string]::IsNullOrEmpty($customResponse.Path)) {
-                        Remove-Item -LiteralPath $customResponse.Path -Force
+                    '(.*?)PoshBot\.File\.Upload' {
+                        $this.LogDebug('Custom response is [PoshBot.File.Upload]')
+    
+                        $uploadParams = @{
+                            Token = $this.Connection.Config.Credential.GetNetworkCredential().Password
+                            Channel = $sendTo
+                        }
+    
+                        if ([string]::IsNullOrEmpty($customResponse.Path) -and (-not [string]::IsNullOrEmpty($customResponse.Content))) {
+                            $uploadParams.Content = $customResponse.Content
+                            if (-not [string]::IsNullOrEmpty($customResponse.FileType)) {
+                                $uploadParams.FileType = $customResponse.FileType
+                            }
+                            if (-not [string]::IsNullOrEmpty($customResponse.FileName)) {
+                                $uploadParams.FileName = $customResponse.FileName
+                            }
+                        } else {
+                            # Test if file exists and send error response if not found
+                            if (-not (Test-Path -Path $customResponse.Path -ErrorAction SilentlyContinue)) {
+                                # Mark command as failed since we could't find the file to upload
+                                $this.RemoveReaction($Response.OriginalMessage, [ReactionType]::Success)
+                                $this.AddReaction($Response.OriginalMessage, [ReactionType]::Failure)
+                                $att = New-SlackMessageAttachment -Color '#FF0000' -Title 'Rut row' -Text "File [$($uploadParams.Path)] not found" -Fallback 'Rut row'
+                                $msg = $att | New-SlackMessage -Channel $sendTo -AsUser
+                                $this.LogDebug("Sending card response back to Slack channel [$sendTo]", $att)
+                                $null = $msg | Send-SlackMessage -Token $this.Connection.Config.Credential.GetNetworkCredential().Password -Verbose:$false
+                                break
+                            }
+    
+                            $this.LogDebug("Uploading [$($customResponse.Path)] to Slack channel [$sendTo]")
+                            $uploadParams.Path = $customResponse.Path
+                            $uploadParams.Title = Split-Path -Path $customResponse.Path -Leaf
+                        }
+    
+                        if (-not [string]::IsNullOrEmpty($customResponse.Title)) {
+                            $uploadParams.Title = $customResponse.Title
+                        }
+    
+                        Send-SlackFile @uploadParams -Verbose:$false
+                        if (-not $customResponse.KeepFile -and -not [string]::IsNullOrEmpty($customResponse.Path)) {
+                            Remove-Item -LiteralPath $customResponse.Path -Force
+                        }
+                        break
                     }
-                    break
                 }
             }
         }
